@@ -19,49 +19,49 @@
          mov di,0                ;在用另一个索引寄存器DI指向ES段内的偏移地址0处，ES是指向0xb800段
          mov cx,start-message    ;编译阶段计算一个循环计数，该循环次数等于字符串的长度
      @g:
-         mov al,[si]
-         mov [es:di],al
-         inc di
-         mov byte [es:di],0x07
-         inc di
-         inc si
-         loop @g                 ;数据循环依赖loop，loop指令的工作又依赖与CX寄存器
-
+         mov al,[si]             ;循环体执行，从DS:SI的地方取得了第一个字符
+         mov [es:di],al          ;将其传送到了ES:DI，指向了显示缓冲区
+         inc di                  ;DI的内容加一，指向显示缓冲区捏的属性字节
+         mov byte [es:di],0x07   ;在该位置写入属性0x07，黑底白字
+         inc di                  ;di再次加1
+         inc si                  ;si也加1，一指向源地址和目标地址的下一个单元
+         loop @g                 ;数据循环依赖loop，loop指令的工作又依赖与CX寄存器,loop指令在执行时先将cx的内容建议
+                                 ;然后处理器根据cx时候为0来决定是否开始下一轮循环，当cx为0的时候，说明所有字符已经显示完毕
          ;以下计算1到100的和 
-         xor ax,ax
-         mov cx,1
+         xor ax,ax               ;清0ax寄存器
+         mov cx,1                ;初始化cx为1
      @f:
-         add ax,cx
-         inc cx
-         cmp cx,100
-         jle @f
+         add ax,cx               ;ax加上cx
+         inc cx                  ;cx+1，下一个要加的数字
+         cmp cx,100              ;比较cx是不是100
+         jle @f                  ;如果不满足条件则跳到f处继续执行
 
-         ;以下计算累加和的每个数位 
+         ;以下计算累加和的每个数位，分解各个数位，准备好在屏幕显示，好让我们知道这个书到底是多少
          xor cx,cx              ;设置堆栈段的段基地址
-         mov ss,cx
-         mov sp,cx
+         mov ss,cx              ;初始化栈段ss，段寄存器ss为0x0000
+         mov sp,cx              ;初始化栈指针sp为0x0000
 
-         mov bx,10
-         xor cx,cx
-     @d:
-         inc cx
-         xor dx,dx
-         div bx
-         or dl,0x30
-         push dx
-         cmp ax,0
-         jne @d
+         mov bx,10              ;数位分解，将除数10传送到寄存器bx，以分解ax中的数，固定是分解5位（65535），本段程序做优化，每次在分解的时候进行一次判断
+         xor cx,cx              ;将cx清0，后面的代码用于统计累计有多少个数位
+     @d:                        ;循环体
+         inc cx                 ;记录分解了几个数位
+         xor dx,dx              ;将dx清零，和ax形成了32位的被除数
+         div bx                 ;与bx（10）相除
+         or dl,0x30             ;将dl中的商加上0x30：，or是或指令，因为除以10，在寄存器dl中得到的余数高四位必定为0，又因为0x30低四位都是0，或等于加；和and都不允许两个操作数同时为内存单元
+         push dx                ;在8086处理器下，push只能压一个字，但是其后的32位和64位允许压人字四字等，所以有时候得加关键字，切不能压入字节
+         cmp ax,0               ;比较除完之后是不是0，如果是0就可以退出了
+         jne @d                 ;跳转指令
 
          ;以下显示各个数位 
      @a:
-         pop dx
-         mov [es:di],dl
-         inc di
-         mov byte [es:di],0x07
-         inc di
-         loop @a
-       
-         jmp near $ 
+         pop dx                 ;pop dx指令的功能是将逻辑地址ss：sp
+         mov [es:di],dl         ;将弹出的数据显示到缓冲区
+         inc di                 ;将字符显示属性写入字符之后的单元
+         mov byte [es:di],0x07  ;
+         inc di                 ;再次递增di以指向显示缓冲区中下一个字符的位置
+         loop @a                ;每次执行loop指令都死想将寄存器cx减一，当所有数位都弹出和显示之后cx必定为0，这将导致循环退出
+                                ;当处理器最后一次执行出栈操作后，站指针寄存器sp的内容将恢复到最开始的状态，即他的内容重新为0
+         jmp near $             ;
        
 
 times 510-($-$$) db 0
