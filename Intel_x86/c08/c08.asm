@@ -136,10 +136,10 @@ put_char:                                ;显示一个字符
          ;初始执行时，DS和ES指向用户程序头部段
          mov ax,[stack_segment]           ;设置到用户程序自己的堆栈 
          mov ss,ax
-         mov sp,stack_end
+         mov sp,stack_end                 ;将标号stack_end所表示的数值传送到栈指针寄存器sp
          
          mov ax,[data_1_segment]          ;设置到用户程序自己的数据段
-         mov ds,ax
+         mov ds,ax                        ;从此ds不在指向header，不能在用它访问用户程序的头部了
 
          mov bx,msg0
          call put_string                  ;显示第一段信息 

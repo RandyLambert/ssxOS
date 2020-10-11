@@ -5,33 +5,33 @@
          
          app_lba_start equ 100           ;声明常数（用户程序起始逻辑扇区号）
                                          ;常数的声明不会占用汇编地址
-                                    
-SECTION mbr align=16 vstart=0x7c00                                     
+                                         ;类似与宏
+SECTION mbr align=16 vstart=0x7c00       ;将主引导扇区程序定义成一个段，定义了vstart=0x7c00，段内的所有元素的汇编地址都从0x7c00开始计算
 
          ;设置堆栈段和栈指针 
-         mov ax,0      
-         mov ss,ax
-         mov sp,ax
+         mov ax,0                        ;用于初始化栈段寄存器ss和栈指针sp
+         mov ss,ax                       ;初始化ss为0
+         mov sp,ax                       ;初始化栈指针sp为0
       
          mov ax,[cs:phy_base]            ;计算用于加载用户程序的逻辑段地址 
-         mov dx,[cs:phy_base+0x02]
+         mov dx,[cs:phy_base+0x02]       ;改地址是江上是保存在phy_base处的一个双字单元里，这是一个32位的数，因此使用两个寄存器存放
          mov bx,16        
          div bx            
          mov ds,ax                       ;令DS和ES指向该段以进行操作
-         mov es,ax                        
+         mov es,ax                       ;将改物理地址变成16位的段地址，传送到ds和es寄存器中
     
          ;以下读取程序的起始部分 
-         xor di,di
+         xor di,di                       ;用于从硬盘上读取这个扇区的内容
          mov si,app_lba_start            ;程序在硬盘上的起始逻辑扇区号 
          xor bx,bx                       ;加载到DS:0x0000处 
-         call read_hard_disk_0
-      
+         call read_hard_disk_0           ;先读第一个扇区，该扇区包含了用户程序的头部，而用户程序的头部又
+                                         ;又包含了该程序的大小，入口点和段重定位表
          ;以下判断整个程序有多大
-         mov dx,[2]                      ;曾经把dx写成了ds，花了二十分钟排错 
-         mov ax,[0]
-         mov bx,512                      ;512字节每扇区
-         div bx
-         cmp dx,0
+         mov dx,[2]                      ;曾经把dx写成了ds，花了二十分钟排错 高16位写入dx
+         mov ax,[0]                      ;把低16位写到ax
+         mov bx,512                      ;512字节每扇区，因为每个扇区有512字节，将512传送到bx寄存器
+         div bx                          ;并在33行使用除法，如果用户程序的大小正好为512的整数被，则寄存器ax中是用户程序实际占用的扇区数
+         cmp dx,0                        ;判断是否除尽，如果没有除尽，则转移到后面的代码，去读剩下的扇区，如果除尽了，总扇区减一，减一是因为已经预读了一个扇区
          jnz @1                          ;未除尽，因此结果比实际扇区数少1 
          dec ax                          ;已经读了一个扇区，扇区总数减1 
    @1:
@@ -41,56 +41,56 @@ SECTION mbr align=16 vstart=0x7c00
          ;读取剩余的扇区
          push ds                         ;以下要用到并改变DS寄存器 
 
-         mov cx,ax                       ;循环次数（剩余扇区数）
+         mov cx,ax                       ;循环次数（剩余扇区数）,将用户程序剩余的扇区数传送到寄存器cx中，供后面的loop指令使用，使用循环的方法读完用户程序
    @2:
-         mov ax,ds
+         mov ax,ds                       ;将当前数据段寄存器ds的内容在原来的基础上增加0x20，以构造出下一个逻辑段，为从硬盘上读取下一个512字节数据做准备
          add ax,0x20                     ;得到下一个以512字节为边界的段地址
          mov ds,ax  
                               
-         xor bx,bx                       ;每次读时，偏移地址始终为0x0000 
-         inc si                          ;下一个逻辑扇区 
-         call read_hard_disk_0
+         xor bx,bx                       ;每次读时，偏移地址始终为0x0000，bx被用作数据传输时的段内偏移，并且每次传输都是在一个段内进行 故偏移地址应该为0
+         inc si                          ;下一个逻辑扇区，将寄存器si+1，以便指向下一个逻辑扇区
+         call read_hard_disk_0           ;调用读硬盘的过程，并开始下一轮的循环，直到所有扇区都读完寄存器cx的内容为0
          loop @2                         ;循环读，直到读完整个功能程序 
 
-         pop ds                          ;恢复数据段基址到用户程序头部段 
+         pop ds                          ;恢复数据段基址到用户程序头部段，从栈中回复数据段寄存器ds的内容，使其自相互用户程序被加载的其实位置也就是用户程序头部 
       
          ;计算入口点代码段基址 
-   direct:
-         mov dx,[0x08]
-         mov ax,[0x06]
-         call calc_segment_base
-         mov [0x06],ax                   ;回填修正后的入口点代码段基址 
+   direct:                               ;用于重定位用户程序入口点的代码段
+         mov dx,[0x08]                   ;用户程序头部内，偏移为0x06处的双字存放的是入口点代码段的汇编地址
+         mov ax,[0x06]                   ;加载器首先将高字和低字分别传送到寄存器dx和ax，然后调用calc_segemnt来计算该代码段在内存中的段地址
+         call calc_segment_base          ;该过程在134行定义，他接受一个32为的汇编地址，位于寄存器dx：ax中，并在计算完成后向主程序中返回一个16位的逻辑段地址位于寄存器ax中
+         mov [0x06],ax                   ;回填修正后的入口点代码段基址,这条指令将刚刚计算出来的逻辑段地址回写到原处仅覆盖低16位，高16位不用管 
       
          ;开始处理段重定位表
-         mov cx,[0x0a]                   ;需要重定位的项目数量
-         mov bx,0x0c                     ;重定位表首地址
+         mov cx,[0x0a]                   ;需要重定位的项目数量，用于将他从该内存地址传送到寄存器cx中，供后面循环指令使用
+         mov bx,0x0c                     ;重定位表首地址，以后每次将bx内容加上4，就指向下一个重定位表项
           
- realloc:
-         mov dx,[bx+0x02]                ;32位地址的高16位 
-         mov ax,[bx]
-         call calc_segment_base
+ realloc:                                ;每次循环开始的时候，bx总是指向需要成定位段的汇编地址，而且都是双字
+         mov dx,[bx+0x02]                ;32位地址的高16，传送到寄存器dx 
+         mov ax,[bx]                     ;传送到寄存器ax
+         call calc_segment_base          ;调用过程，计算相应逻辑段的地址，并覆盖掉原来的位置，
          mov [bx],ax                     ;回填段的基址
-         add bx,4                        ;下一个重定位项（每项占4个字节） 
+         add bx,4                        ;下一个重定位项（每项占4个字节） 最后将基址寄存器的内容加上4，以指向下一个表项,当寄存器cx的内容为0时，循环结束所有段都处理完毕
          loop realloc 
       
-         jmp far [0x04]                  ;转移到用户程序  
+         jmp far [0x04]                  ;转移到用户程序，间接绝对远转移指令  
  
 ;-------------------------------------------------------------------------------
 read_hard_disk_0:                        ;从硬盘读取一个逻辑扇区
                                          ;输入：DI:SI=起始逻辑扇区号
                                          ;      DS:BX=目标缓冲区地址
-         push ax
-         push bx
+         push ax                         ;将本过程要用到的寄存器临时压栈
+         push bx                         ;在返回到调用点之前出栈回复
          push cx
-         push dx
+         push dx                         ;将过程中用到的寄存器入栈保存
       
-         mov dx,0x1f2
-         mov al,1
+         mov dx,0x1f2                    ;瞎忙活0x1f2端口写入要读取的扇区数
+         mov al,1                        ;每次读取的扇区数为1
          out dx,al                       ;读取的扇区数
 
          inc dx                          ;0x1f3
-         mov ax,si
-         out dx,al                       ;LBA地址7~0
+         mov ax,si                       ;91-101行，用于想硬盘接口写入起始逻辑扇区号的低24位
+         out dx,al                       ;LBA地址7~0，低16位在寄存器si中，高12位在寄存器DI中，需要不停的倒换到寄存器al中，以方便端口写入
 
          inc dx                          ;0x1f4
          mov al,ah
@@ -98,11 +98,11 @@ read_hard_disk_0:                        ;从硬盘读取一个逻辑扇区
 
          inc dx                          ;0x1f5
          mov ax,di
-         out dx,al                       ;LBA地址23~16
+         out dx,al                       ;LBA地址23~16，需要不停到倒换到寄存器al中。以方便端口写入
 
          inc dx                          ;0x1f6
          mov al,0xe0                     ;LBA28模式，主盘
-         or al,ah                        ;LBA地址27~24
+         or al,ah                        ;LBA地址27~24，寄存器ah中的低4位是起始逻辑扇区好的27-24位，高4位全0，寄存器al中是0xe0，执行or指令后，将会在寄存器al中得到他们的组合值，高4位是0xe，第四位是逻辑扇区27-24位
          out dx,al
 
          inc dx                          ;0x1f7
@@ -116,17 +116,17 @@ read_hard_disk_0:                        ;从硬盘读取一个逻辑扇区
          jnz .waits                      ;不忙，且硬盘已准备好数据传输 
 
          mov cx,256                      ;总共要读取的字数
-         mov dx,0x1f0
-  .readw:
-         in ax,dx
+         mov dx,0x1f0                    ;118-124行，用于反复从硬盘接口哪里取得512字节的数据，并传送到
+  .readw:                                ;段寄存器ds所指向的数据区中，没传送一个字，bx的指就增加2，指向
+         in ax,dx                        ;下一个偏移位置
          mov [bx],ax
          add bx,2
          loop .readw
 
-         pop dx
+         pop dx                          ;恢复
          pop cx
          pop bx
-         pop ax
+         pop ax                          ;把调用过程前各个寄存器中的内容从栈中恢复
       
          ret
 
@@ -134,21 +134,21 @@ read_hard_disk_0:                        ;从硬盘读取一个逻辑扇区
 calc_segment_base:                       ;计算16位段地址
                                          ;输入：DX:AX=32位物理地址
                                          ;返回：AX=16位段基地址 
-         push dx                          
+         push dx                         ;因为计算过程需要破坏寄存器dx的内容，因此137行用于压栈保存
          
-         add ax,[cs:phy_base]
-         adc dx,[cs:phy_base+0x02]
-         shr ax,4
-         ror dx,4
-         and dx,0xf000
-         or ax,dx
+         add ax,[cs:phy_base]            ;在16位的处理器，每次只能进行16位数的运算，现将用户程序在内存中物理起始地址的低16为加到寄存器ax中，该指令的地址部分使用了段超越前缀cs：，不用加上0x7c00
+         adc dx,[cs:phy_base+0x02]       ;再将该起始地址的高16位加到寄存器dx中。adc是带仅为加法，它将操作数和源操作数相加，然后加上标识寄存器cf位的值（0或者1）
+         shr ax,4                        ;不太明白
+         ror dx,4                        ;循环右移指令，每右移一次移出的比特即送到标志寄存器的cf位，也送到左边空出的位
+         and dx,0xf000                   ;因为是循环移位，寄存器dx的低12为我们不需要，and指令进行清零
+         or ax,dx                        ;正式将ax和dx的内容合并，这就是我们要的段地址
          
-         pop dx
+         pop dx                          ;恢复寄存器dx的原始内容，并返回到调用程序哪里
          
-         ret
+         ret                             ;返回到调用个点
 
 ;-------------------------------------------------------------------------------
-         phy_base dd 0x10000             ;用户程序被加载的物理起始地址
+         phy_base dd 0x10000             ;用户程序被加载的物理起始地址，dd是个伪指令
          
  times 510-($-$$) db 0
                   db 0x55,0xaa
