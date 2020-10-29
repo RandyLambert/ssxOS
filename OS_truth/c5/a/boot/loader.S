@@ -29,31 +29,31 @@
    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
    ;以下是定义gdt的指针，前2字节是gdt界限，后4字节是gdt起始地址
-   gdt_ptr  dw  GDT_LIMIT 
+   gdt_ptr  dw  GDT_LIMIT   ;六个字节
 	    dd  GDT_BASE
 
    ;人工对齐:total_mem_bytes4字节+gdt_ptr6字节+ards_buf244字节+ards_nr2,共256字节
-   ards_buf times 244 db 0
-   ards_nr dw 0		      ;用于记录ards结构体数量
+   ards_buf times 244 db 0 ;提前定义缓冲区,为的是存储bios 0x15中断0xe820子功能返回的ards结构,没哟次终端都会得到一个ards结构体,为了同意结构,所以一次性申请了个大一些的缓冲区
+   ards_nr dw 0		      ;用于记录ards结构体数量,两个字节,加起来256个字节
 
-   loader_start:
+   loader_start:        ;偏移量是300字节
    
 ;-------  int 15h eax = 0000E820h ,edx = 534D4150h ('SMAP') 获取内存布局  -------
-
+                          ;采用bios中断0x15的三种子功能来检测不抽烟不,按照强到弱的顺序检测
    xor ebx, ebx		      ;第一次调用时，ebx值要为0
-   mov edx, 0x534d4150	      ;edx只赋值一次，循环体中不会改变
-   mov di, ards_buf	      ;ards结构缓冲区
+   mov edx, 0x534d4150	  ;edx只赋值一次，循环体中不会改变
+   mov di, ards_buf	      ;ards结构缓冲区244个字节,提前准备好的缓冲区
 .e820_mem_get_loop:	      ;循环获取每个ARDS内存范围描述结构
-   mov eax, 0x0000e820	      ;执行int 0x15后,eax值变为0x534d4150,所以每次执行int前都要更新为子功能号。
+   mov eax, 0x0000e820	  ;执行int 0x15后,eax值变为0x534d4150,所以每次执行int前都要更新为子功能号,es在mbr中已经赋值了,在47行里di赋值
    mov ecx, 20		      ;ARDS地址范围描述符结构大小是20字节
-   int 0x15
+   int 0x15               ;没执行一次int 0x15之后.寄存器eax,ebx,ecx都会更新,eax的值是之前的子功能号变成字符串smap的ascii码,ebx为新的后续值,ecx为实际写入缓冲区的字节数
    jc .e820_failed_so_try_e801   ;若cf位为1则有错误发生，尝试0xe801子功能
    add di, cx		      ;使di增加20字节指向缓冲区中新的ARDS结构位置
    inc word [ards_nr]	      ;记录ARDS数量
    cmp ebx, 0		      ;若ebx为0且cf不为1,这说明ards全部返回，当前已是最后一个
    jnz .e820_mem_get_loop
 
-;在所有ards结构中，找出(base_add_low + length_low)的最大值，即内存的容量。
+;在所有ards结构中，找出(base_add_low + length_low)的最大值，即内存的容量。找出最大的内存块
    mov cx, [ards_nr]	      ;遍历每一个ARDS结构体,循环次数是ARDS的数量
    mov ebx, ards_buf 
    xor edx, edx		      ;edx为最大的内存容量,在此先清0
@@ -66,19 +66,19 @@
    mov edx, eax		      ;edx为总内存大小
 .next_ards:
    loop .find_max_mem_area
-   jmp .mem_get_ok
+   jmp .mem_get_ok        ;用子功能0xe820方法
 
 ;------  int 15h ax = E801h 获取内存大小,最大支持4G  ------
 ; 返回后, ax cx 值一样,以KB为单位,bx dx值一样,以64KB为单位
 ; 在ax和cx寄存器中为低16M,在bx和dx寄存器中为16MB到4G。
 .e820_failed_so_try_e801:
-   mov ax,0xe801
+   mov ax,0xe801              ;使用终端号0x15的子功能0xe801探测内存容量
    int 0x15
    jc .e801_failed_so_try88   ;若当前e801方法失败,就尝试0x88方法
 
 ;1 先算出低15M的内存,ax和cx中是以KB为单位的内存数量,将其转换为以byte为单位
    mov cx,0x400	     ;cx和ax值一样,cx用做乘数
-   mul cx 
+   mul cx            ;在16位乘法的时候,mul指令固定的成熟是寄存器ax,积为32位,高16位在dx寄存器,低16为在ax寄存器
    shl edx,16
    and eax,0x0000FFFF
    or edx,eax
@@ -86,7 +86,7 @@
    mov esi,edx	     ;先把低15MB的内存容量存入esi寄存器备份
 
 ;2 再将16MB以上的内存转换为byte为单位,寄存器bx和dx中是以64KB为单位的内存数量
-   xor eax,eax
+   xor eax,eax      ;计算16md以上的内存容量,结果放到寄存器bx和dx中,单位为64kb
    mov ax,bx		
    mov ecx, 0x10000	;0x10000十进制为64KB
    mul ecx		;32位乘法,默认的被乘数是eax,积为64位,高32位存入edx,低32位存入eax.
