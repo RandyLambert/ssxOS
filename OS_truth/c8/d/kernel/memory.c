@@ -89,7 +89,7 @@ static void mem_pool_init(uint32_t all_mem) {
 }
 
 /* 内存管理部分初始化入口 */
-void mem_init() {
+void mem_init() { // 被放到此函数中调用
    put_str("mem_init start\n");
    uint32_t mem_bytes_total = (*(uint32_t*)(0xb00)); //定义了变量mem_bytes_total,用来存储机器上安装的物理内存总量,因为在loader.S中把获取的内存容量放到了地址0xb00处
    mem_pool_init(mem_bytes_total);	  // 初始化内存池,将内存容量值传给函数mem_pool_init,让函数将他分配给各个物理内存池
