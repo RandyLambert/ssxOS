@@ -80,29 +80,29 @@ put_char:                       ;开始电话已函数put_char
 
  .is_carriage_return_end:		  ; 回车符CR处理结束
    add bx, 80
-   cmp bx, 2000
+   cmp bx, 2000                 ;滚屏判断
  .is_line_feed_end:			  ; 若是LF(\n),将光标移+80便可。  
    jl .set_cursor
 
 ;屏幕行范围是0~24,滚屏的原理是将屏幕的1~24行搬运到0~23行,再将第24行用空格填充
- .roll_screen:				  ; 若超出屏幕大小，开始滚屏
-   cld  
-   mov ecx, 960				  ; 一共有2000-80=1920个字符要搬运,共1920*2=3840字节.一次搬4字节,共3840/4=960次 
-   mov esi, 0xb80a0			  ; 第1行行首
-   mov edi, 0xb8000			  ; 第0行行首
+ .roll_screen:				  ; 若超出屏幕大小，开始滚屏操作
+   cld                        ; 清除方向位,就是吧flags寄存器中方向标志位df清0
+   mov ecx, 960				  ; 一共有2000-80=1920个字符要搬运,共1920*2=3840字节.一次搬4字节,共3840/4=960次,控制rep重复执行指令的次数,每次把1-24行的字符整体向上提一行
+   mov esi, 0xb80a0			  ; 第1行行首,复制的起始位置赋值给esi寄存器,就是屏幕第一行的起始位置
+   mov edi, 0xb8000			  ; 第0行行首,将目的地址赋值给edi寄存器,就是在屏幕的第0行的起始地址
    rep movsd				  
 
 ;;;;;;;将最后一行填充为空白
    mov ebx, 3840			  ; 最后一行首字符的第一个字节偏移= 1920 * 2
    mov ecx, 80				  ;一行是80字符(160字节),每次清空1字符(2字节),一行需要移动80次
  .cls:
-   mov word [gs:ebx], 0x0720		  ;0x0720是黑底白字的空格键
-   add ebx, 2
+   mov word [gs:ebx], 0x0720		  ;0x0720是黑底白字的空格键,处理一个空格
+   add ebx, 2                         ;三行代码清空最后一行
    loop .cls 
    mov bx,1920				  ;将光标值重置为1920,最后一行的首字符.
 
- .set_cursor:   
-					  ;将光标设为bx值
+ .set_cursor:                 ;设置光标代码,它把光标坐标寄存器设置为寄存器bx中的值
+					          ;将光标设为bx值
 ;;;;;;; 1 先设置高8位 ;;;;;;;;
    mov dx, 0x03d4			  ;索引寄存器
    mov al, 0x0e				  ;用于提供光标位置的高8位
@@ -118,6 +118,6 @@ put_char:                       ;开始电话已函数put_char
    mov dx, 0x03d5 
    mov al, bl
    out dx, al
- .put_char_done: 
-   popad
-   ret
+ .put_char_done:            ;完成put_char的处理流程
+   popad                    ;用popd指令将之前入栈的8个32位寄存器恢复到各个寄存器中环境恢复
+   ret                      ;返回

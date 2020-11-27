@@ -191,7 +191,7 @@ enter_kernel:
 
 
 ;-----------------   将kernel.bin中的segment拷贝到编译的地址   -----------
-kernel_init:
+kernel_init:        ;初始化内核代码
    xor eax, eax
    xor ebx, ebx		;ebx记录程序头表地址
    xor ecx, ecx		;cx记录程序头表中的program header数量
@@ -202,11 +202,11 @@ kernel_init:
 					  ; 其实该值是0x34,不过还是谨慎一点，这里来读取实际值
    add ebx, KERNEL_BIN_BASE_ADDR
    mov cx, [KERNEL_BIN_BASE_ADDR + 44]    ; 偏移文件开始部分44字节的地方是e_phnum,表示有几个program header
-.each_segment:
+.each_segment:                          ;205到220行之中,程序头表地址在寄存器ebx中,而且又知道程序头表中段的数量,可以便利没个段的信息
    cmp byte [ebx + 0], PT_NULL		  ; 若p_type等于 PT_NULL,说明此program header未使用。
-   je .PTNULL
+   je .PTNULL                           ;发现该段是空段类型的话,就跨过该段不处理,跳到.PTNULL,217行
 
-   ;为函数memcpy压入参数,参数是从右往左依然压入.函数原型类似于 memcpy(dst,src,size)
+   ;为函数memcpy压入参数,参数是从右往左依然压入.函数原型类似于 memcpy(dst,src,size),通过mem_cpy函数复制到段自身的虚拟地址处
    push dword [ebx + 16]		  ; program header中偏移16字节的地方是p_filesz,压入函数memcpy的第三个参数:size
    mov eax, [ebx + 4]			  ; 距程序头偏移量为4字节的位置是p_offset
    add eax, KERNEL_BIN_BASE_ADDR	  ; 加上kernel.bin被加载到的物理地址,eax为该段的物理地址
@@ -224,14 +224,14 @@ kernel_init:
 ;输出:无
 ;---------------------------------------------------------
 mem_cpy:		      
-   cld
+   cld              ;cld指令指向方向,++还是--只要放在movsb之前就行
    push ebp
    mov ebp, esp
-   push ecx		   ; rep指令用到了ecx，但ecx对于外层段的循环还有用，故先入栈备份
-   mov edi, [ebp + 8]	   ; dst
-   mov esi, [ebp + 12]	   ; src
-   mov ecx, [ebp + 16]	   ; size
-   rep movsb		   ; 逐字节拷贝
+   push ecx		   ; rep指令用到了ecx，但ecx对于外层段的循环还有用，故先入栈备份,ecx奉赠作为遍历段的循环计数,这样在ecx用完之后,pop之前的数一遍外层循环中保持ecx的正确
+   mov edi, [ebp + 8]	   ; dst,esi和edi指向的要复制的段的来源地址和目的地址,ecx是为reo指令准备的,制定了调用movsb指令的次数
+   mov esi, [ebp + 12]	   ; src  ,ds和es在进入保护模式之初就被赋值成为相同的选择子,他们都指向了同一个段描述符,因此他们在这里没问题
+   mov ecx, [ebp + 16]	   ; size, ebp栈顶指针,往上直接访问内存
+   rep movsb		       ; 逐字节拷贝
 
    ;恢复环境
    pop ecx		

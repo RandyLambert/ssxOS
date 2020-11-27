@@ -83,7 +83,7 @@ static void* palloc(struct pool* m_pool) {
 }
 
 /* 页表中添加虚拟地址_vaddr与物理地址_page_phyaddr的映射 */
-static void page_table_add(void* _vaddr, void* _page_phyaddr) {
+static void page_table_add(void* _vaddr, void* _page_phyaddr) { //虚拟地址和物理地址的映射关系是在页表中完成的,本质上是在页表中添加此虚拟地址对应的页表项 pte
    uint32_t vaddr = (uint32_t)_vaddr, page_phyaddr = (uint32_t)_page_phyaddr;
    uint32_t* pde = pde_ptr(vaddr);
    uint32_t* pte = pte_ptr(vaddr);
@@ -104,7 +104,7 @@ static void page_table_add(void* _vaddr, void* _page_phyaddr) {
       }
    } else {			    // 页目录项不存在,所以要先创建页目录再创建页表项.
       /* 页表中用到的页框一律从内核空间分配 */
-      uint32_t pde_phyaddr = (uint32_t)palloc(&kernel_pool);
+      uint32_t pde_phyaddr = (uint32_t)palloc(&kernel_pool); //通过调用申请新的物理页并保存在变量pde_phyaddr中
 
       *pde = (pde_phyaddr | PG_US_U | PG_RW_W | PG_P_1);
 
@@ -113,7 +113,7 @@ static void page_table_add(void* _vaddr, void* _page_phyaddr) {
        * 访问到pde对应的物理地址,用pte取高20位便可.
        * 因为pte是基于该pde对应的物理地址内再寻址,
        * 把低12位置0便是该pde对应的物理页的起始*/
-      memset((void*)((int)pte & 0xfffff000), 0, PG_SIZE);
+      memset((void*)((int)pte & 0xfffff000), 0, PG_SIZE); //调用memset函数对刚刚申请的物理页初始化为0,这里还有一些陈旧的数据
          
       ASSERT(!(*pte & 0x00000001));
       *pte = (page_phyaddr | PG_US_U | PG_RW_W | PG_P_1);      // US=1,RW=1,P=1
@@ -121,40 +121,40 @@ static void page_table_add(void* _vaddr, void* _page_phyaddr) {
 }
 
 /* 分配pg_cnt个页空间,成功则返回起始虚拟地址,失败时返回NULL */
-void* malloc_page(enum pool_flags pf, uint32_t pg_cnt) {
-   ASSERT(pg_cnt > 0 && pg_cnt < 3840);
+void* malloc_page(enum pool_flags pf, uint32_t pg_cnt) {//接受了两个参数,一个是pf来指明内存池,另一个是pg_cnt用来指明页数,此函数的功能是在pf所指向的内存池中分配pg_cnt个页,成功返回虚拟地址,失败返回NULL
+   ASSERT(pg_cnt > 0 && pg_cnt < 3840);//监控页的大小
 /***********   malloc_page的原理是三个动作的合成:   ***********
       1通过vaddr_get在虚拟内存池中申请虚拟地址
       2通过palloc在物理内存池中申请物理页
       3通过page_table_add将以上得到的虚拟地址和物理地址在页表中完成映射
 ***************************************************************/
-   void* vaddr_start = vaddr_get(pf, pg_cnt);
+   void* vaddr_start = vaddr_get(pf, pg_cnt);//在这里先进行申请虚拟地址如果失败就返回null
    if (vaddr_start == NULL) {
       return NULL;
    }
 
    uint32_t vaddr = (uint32_t)vaddr_start, cnt = pg_cnt;
-   struct pool* mem_pool = pf & PF_KERNEL ? &kernel_pool : &user_pool;
+   struct pool* mem_pool = pf & PF_KERNEL ? &kernel_pool : &user_pool; //在这里判断所要用的内存池属于内核还是属于用户,下面是要在相应的内存池中分配物理页
 
    /* 因为虚拟地址是连续的,但物理地址可以是不连续的,所以逐个做映射*/
-   while (cnt-- > 0) {
-      void* page_phyaddr = palloc(mem_pool);
+   while (cnt-- > 0) { //循环为虚拟也分配物理页,并在页表中建立映射关系
+      void* page_phyaddr = palloc(mem_pool); //调用palloc在相应的内存池中申请物理页,物理页地址2保存在指针变量page_phyaddr
       if (page_phyaddr == NULL) {  // 失败时要将曾经已申请的虚拟地址和物理页全部回滚，在将来完成内存回收时再补充
 	 return NULL;
       }
       page_table_add((void*)vaddr, page_phyaddr); // 在页表中做映射 
       vaddr += PG_SIZE;		 // 下一个虚拟页
    }
-   return vaddr_start;
+   return vaddr_start;//未完成,当申请物理也失败的时候,应该将已经申请成功的物理地址和虚拟地址全部回滚
 }
 
 /* 从内核物理内存池中申请pg_cnt页内存,成功则返回其虚拟地址,失败则返回NULL */
-void* get_kernel_pages(uint32_t pg_cnt) {
-   void* vaddr =  malloc_page(PF_KERNEL, pg_cnt);
+void* get_kernel_pages(uint32_t pg_cnt) {//只接受一个参数申请的页数pg_cnt,函数的功能是从内核物理内存池中申请pg_cnt也内存,成功返回其虚拟地址,失败返回NULL
+   void* vaddr =  malloc_page(PF_KERNEL, pg_cnt); //通过低矮用malloc_page实现的,返回值的虚拟地址保存在变量vaddr中
    if (vaddr != NULL) {	   // 若分配的地址不为空,将页框清0后返回
-      memset(vaddr, 0, pg_cnt * PG_SIZE);
+      memset(vaddr, 0, pg_cnt * PG_SIZE); //因为虚拟地址是连续的,所以置0的字节数直接用pg_cnt乘以pg_size
    }
-   return vaddr;
+   return vaddr; //申请成功返回分配的虚拟地址
 }
 
 /* 初始化内存池 */
