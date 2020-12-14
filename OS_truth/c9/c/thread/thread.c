@@ -8,18 +8,18 @@
 #include "memory.h"
 
 #define PG_SIZE 4096
-
-struct task_struct* main_thread;    // 主线程PCB
+// 开头需要定义一些全局的数据结构
+struct task_struct* main_thread;    // 主线程PCB,咱们进入内核之后一直执行的是main函数,其实他就是一个线程,我们会在后面将他完善成线程的结构,因此先定义一个 PCB
 struct list thread_ready_list;	    // 就绪队列
 struct list thread_all_list;	    // 所有任务队列
 static struct list_elem* thread_tag;// 用于保存队列中的线程结点
 
 extern void switch_to(struct task_struct* cur, struct task_struct* next);
 
-/* 获取当前线程pcb指针 */
+/* 返回当前线程pcb指针 */
 struct task_struct* running_thread() {
    uint32_t esp; 
-   asm ("mov %%esp, %0" : "=g" (esp));
+   asm ("mov %%esp, %0" : "=g" (esp)); // 各个线程所用的0级栈都是在自己的pcb中,因此取当前栈指针的高20位作为当前运行线程的PCB.
   /* 取esp整数部分即pcb起始地址 */
    return (struct task_struct*)(esp & 0xfffff000);
 }
@@ -50,7 +50,7 @@ void init_thread(struct task_struct* pthread, char* name, int prio) {
    memset(pthread, 0, sizeof(*pthread));
    strcpy(pthread->name, name);
 
-   if (pthread == main_thread) {
+   if (pthread == main_thread) { // 加入了对主线程的判断,如果待初始化的线程是主线程,将状态置为running,否则置为ready
 /* 由于把main函数也封装成一个线程,并且它一直是运行的,故将其直接设为TASK_RUNNING */
       pthread->status = TASK_RUNNING;
    } else {
@@ -61,7 +61,7 @@ void init_thread(struct task_struct* pthread, char* name, int prio) {
    pthread->self_kstack = (uint32_t*)((uint32_t)pthread + PG_SIZE);
    pthread->priority = prio;
    pthread->ticks = prio;
-   pthread->elapsed_ticks = 0;
+   pthread->elapsed_ticks = 0; // 表示线程没有执行过,线程没有自己的地址空间,因此第65行吧线程的页表置空
    pthread->pgdir = NULL;
    pthread->stack_magic = 0x19870916;	  // 自定义的魔数
 }
@@ -76,7 +76,7 @@ struct task_struct* thread_start(char* name, int prio, thread_func function, voi
 
    /* 确保之前不在队列中 */
    ASSERT(!elem_find(&thread_ready_list, &thread->general_tag));
-   /* 加入就绪线程队列 */
+   /* 加入就绪线程队列,队列加的不是PCB,而是PCB中的一个成员general_tag,作用是使链表中的节点小一点 */
    list_append(&thread_ready_list, &thread->general_tag);
 
    /* 确保之前不在队列中 */
@@ -88,7 +88,7 @@ struct task_struct* thread_start(char* name, int prio, thread_func function, voi
 }
 
 /* 将kernel中的main函数完善为主线程 */
-static void make_main_thread(void) {
+static void make_main_thread(void) { // 提前调用make_main_thread  函数,为主线程赋予了PCB
 /* 因为main线程早已运行,咱们在loader.S中进入内核时的mov esp,0xc009f000,
 就是为其预留了tcb,地址为0xc009e000,因此不需要通过get_kernel_page另分配一页*/
    main_thread = running_thread();

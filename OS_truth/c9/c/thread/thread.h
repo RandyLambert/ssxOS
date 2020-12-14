@@ -83,12 +83,12 @@ struct task_struct {
    uint32_t elapsed_ticks;
 
 /* general_tag的作用是用于线程在一般的队列中的结点 */
-   struct list_elem general_tag;				    
+   struct list_elem general_tag;//是线程的标签,当线程被加入到就绪队列 thread_ready_list 或者其他队列时,就把该线程pcb中的general_tag的地址加入队列				    
 
 /* all_list_tag的作用是用于线程队列thread_all_list中的结点 */
-   struct list_elem all_list_tag;
-
-   uint32_t* pgdir;              // 进程自己页表的虚拟地址
+   struct list_elem all_list_tag; //专门用于线程被家爱如全部线程队列是使用
+   uint32_t* pgdir; //进程自己页表的虚拟地址,任务是自己的页表,线程和进程之间最大的区别就是进程独享自己的地址空间,即进程有自己的页表,而线程共享
+   //所在进程的地址空间,即线程无页表,如果该任务为线程,pgdir为NULL,否则pgdir会被赋予页表的虚拟地址,页表被加载的还是要被转换为物理地址
    uint32_t stack_magic;	 // 用这串数字做栈的边界标记,用于检测栈的溢出
 };
 
