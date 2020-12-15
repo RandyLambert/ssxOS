@@ -14,11 +14,11 @@ struct list_elem {
 };
 
 /* 链表结构,用来实现队列 */
-struct list {
+struct list { //定义双向链表的结构体,链表都有访问的起始入口, 我们定义首尾两个入口
 /* head是队首,是固定不变的，不是第1个元素,第1个元素为head.next */
-   struct list_elem head;
+   struct list_elem head; //头
 /* tail是队尾,同样是固定不变的 */
-   struct list_elem tail;
+   struct list_elem tail; //尾
 };
 
 /* 自定义函数类型function,用于在list_traversal中做回调函数 */

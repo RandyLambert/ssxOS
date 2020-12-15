@@ -3,15 +3,15 @@
 
 /* 初始化双向链表list */
 void list_init (struct list* list) {
-   list->head.prev = NULL;
-   list->head.next = &list->tail;
+   list->head.prev = NULL; //头的前一个无意义
+   list->head.next = &list->tail; // 把表头和表尾连接起来
    list->tail.prev = &list->head;
-   list->tail.next = NULL;
+   list->tail.next = NULL; // 尾的后一个无意义
 }
 
 /* 把链表元素elem插入在元素before之前 */
 void list_insert_before(struct list_elem* before, struct list_elem* elem) { 
-   enum intr_status old_status = intr_disable();
+   enum intr_status old_status = intr_disable();// 关中断
 
 /* 将before前驱元素的后继元素更新为elem, 暂时使before脱离链表*/ 
    before->prev->next = elem; 
@@ -24,7 +24,7 @@ void list_insert_before(struct list_elem* before, struct list_elem* elem) {
 /* 更新before的前驱结点为elem */
    before->prev = elem;
 
-   intr_set_status(old_status);
+   intr_set_status(old_status); // 开中断
 }
 
 /* 添加元素到列表队首,类似栈push操作 */

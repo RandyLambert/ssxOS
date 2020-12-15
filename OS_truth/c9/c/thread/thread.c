@@ -131,7 +131,7 @@ void thread_init(void) {
    list_init(&thread_ready_list);
    list_init(&thread_all_list);
 /* 将当前main函数创建为线程 */
-   make_main_thread();
+   make_main_thread(); // 将主线程封装为线程,本质是在pcb上写入线程信息
    put_str("thread_init done\n");
 }
 
