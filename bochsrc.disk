@@ -26,3 +26,4 @@ ata0-master: type=disk, path="/usr/share/bochs/hd60M.img", mode=flat, cylinders=
 # 下面的是增加的 bochs 对 gdb 的支持，这样 gdb 便可以远程连接到此机器的 1234 端口调试了
 # gdbstub: enabled=1, port=1234, text_base=0, data_base=0, bss_base=0
 ################### 配置文件结束 #####################
+
