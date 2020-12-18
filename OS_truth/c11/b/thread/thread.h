@@ -90,9 +90,9 @@ struct task_struct {
 /* all_list_tag的作用是用于线程队列thread_all_list中的结点 */
    struct list_elem all_list_tag;
 
-   uint32_t* pgdir;              // 进程自己页表的虚拟地址
-
-   struct virtual_addr userprog_vaddr;   // 用户进程的虚拟地址
+   uint32_t* pgdir;              // 进程自己页表的虚拟地址,这将在为进程创建页表是为其赋值
+    // pgdir 本省应该是虚拟地址,但是因为也目录表本身也要占用内存来存储,我们在为进程创建也目录表,一定需要给他申请内存,但是这样就会把物理地址当做虚拟地址,这就错了,因此在往寄存器cr3中加载页目录地址时,我们会将 pgdir 转换为物理地址
+   struct virtual_addr userprog_vaddr;   // 对应用户进程的虚拟地址
    uint32_t stack_magic;	 // 用这串数字做栈的边界标记,用于检测栈的溢出
 };
 

@@ -9,7 +9,7 @@
 #include "string.h"
 #include "console.h"
 
-extern void intr_exit(void);
+extern void intr_exit(void); // 用户进程进入3特权级的关键
 
 /* 构建用户进程初始上下文信息 */
 void start_process(void* filename_) {

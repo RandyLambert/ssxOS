@@ -5,7 +5,7 @@
 #include "print.h"
 
 /* 任务状态段tss结构 */
-struct tss {
+struct tss { // tss.c 开头8-36行定义的 TSS 的结构体 struct tss,TSS 是程序员提供,由 CPU 来维护
     uint32_t backlink;
     uint32_t* esp0;
     uint32_t ss0;
@@ -34,14 +34,14 @@ struct tss {
     uint32_t trace;
     uint32_t io_base;
 }; 
-static struct tss tss;
+static struct tss tss; // 唯一的实例化的 tss
 
 /* 更新tss中esp0字段的值为pthread的0级线 */
-void update_tss_esp(struct task_struct* pthread) {
-   tss.esp0 = (uint32_t*)((uint32_t)pthread + PG_SIZE);
+void update_tss_esp(struct task_struct* pthread) { // 用来更新 TSS 中的 esp0 字段
+   tss.esp0 = (uint32_t*)((uint32_t)pthread + PG_SIZE);// 此函数将TSS中的esp0修改为参数pthread的0级栈地址,也就是线程 pthread 的PCB 所在页的最顶端(uint32_t)pthread + PG_SIZE
 }
 
-/* 创建gdt描述符 */
+/* 创建gdt描述符,注意,此函数不是,直接在gdt中安装好描述符,只是返回生成的描述符 */
 static struct gdt_desc make_gdt_desc(uint32_t* desc_addr, uint32_t limit, uint8_t attr_low, uint8_t attr_high) {
    uint32_t desc_base = (uint32_t)desc_addr;
    struct gdt_desc desc;
@@ -55,10 +55,10 @@ static struct gdt_desc make_gdt_desc(uint32_t* desc_addr, uint32_t limit, uint8_
 }
 
 /* 在gdt中创建tss并重新加载gdt */
-void tss_init() {
+void tss_init() { // 此函数除了用来初始化 tss 并将其安装到 GDT 中,还另外在 GDT 中安装两个供用户进程使用的描述符,一个 DPL 为3的数据段,另一个是 DPL 为3的数据段
    put_str("tss_init start\n");
    uint32_t tss_size = sizeof(tss);
-   memset(&tss, 0, tss_size);
+   memset(&tss, 0, tss_size); //将全局的tss清 0 
    tss.ss0 = SELECTOR_K_STACK;
    tss.io_base = tss_size;
 
@@ -73,8 +73,8 @@ void tss_init() {
    
   /* gdt 16位的limit 32位的段基址 */
    uint64_t gdt_operand = ((8 * 7 - 1) | ((uint64_t)(uint32_t)0xc0000900 << 16));   // 7个描述符大小
-   asm volatile ("lgdt %0" : : "m" (gdt_operand));
-   asm volatile ("ltr %w0" : : "r" (SELECTOR_TSS));
-   put_str("tss_init and ltr done\n");
+   asm volatile ("lgdt %0" : : "m" (gdt_operand)); // 将新的 GDT 重新加载
+   asm volatile ("ltr %w0" : : "r" (SELECTOR_TSS)); // 将 tss 加载到 TR
+   put_str("tss_init and ltr done\n"); // 新的 GDT 和 TSS 已经生效
 }
 
