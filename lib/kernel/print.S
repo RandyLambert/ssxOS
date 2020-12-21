@@ -43,7 +43,7 @@ put_char:
    mov ax, SELECTOR_VIDEO	       ; 不能直接把立即数送入段寄存器
    mov gs, ax
 
-;;;;;;;;;  获取当前光标位置 ;;;;;;;;;
+; 获取当前光标位置
    ;先获得高8位
    mov dx, 0x03d4  ;索引寄存器
    mov al, 0x0e	   ;用于提供光标位置的高8位
@@ -73,7 +73,7 @@ put_char:
    jmp .put_other	   
 
  .is_backspace:		      
-;;;;;;;;;;;;       backspace的一点说明	     ;;;;;;;;;;
+; backspace的一点说明
 ; 当为backspace时,本质上只要将光标移向前一个显存位置即可.后面再输入的字符自然会覆盖此处的字符
 ; 但有可能在键入backspace后并不再键入新的字符,这时在光标已经向前移动到待删除的字符位置,但字符还在原处,
 ; 这就显得好怪异,所以此处添加了空格或空字符0
@@ -120,7 +120,7 @@ put_char:
    mov edi, 0xb8000			  ; 第0行行首
    rep movsd				  
 
-;;;;;;;将最后一行填充为空白
+;将最后一行填充为空白
    mov ebx, 3840			  ; 最后一行首字符的第一个字节偏移= 1920 * 2
    mov ecx, 80				  ;一行是80字符(160字节),每次清理1字符(2字节),一行需要移动80次
  .cls:
@@ -131,7 +131,7 @@ put_char:
 
  .set_cursor:   
 					  ;将光标设为bx值
-;;;;;;; 1 先设置高8位 ;;;;;;;;
+;1 先设置高8位
    mov dx, 0x03d4			  ;索引寄存器
    mov al, 0x0e				  ;用于提供光标位置的高8位
    out dx, al
@@ -139,7 +139,7 @@ put_char:
    mov al, bh
    out dx, al
 
-;;;;;;; 2 再设置低8位 ;;;;;;;;;
+;2 再设置低8位 
    mov dx, 0x03d4
    mov al, 0x0f
    out dx, al
@@ -218,15 +218,14 @@ global set_cursor
 set_cursor:
    pushad
    mov bx, [esp+36]
-;;;;;;; 1 先设置高8位 ;;;;;;;;
+;1 先设置高8位 
    mov dx, 0x03d4			  ;索引寄存器
    mov al, 0x0e				  ;用于提供光标位置的高8位
    out dx, al
    mov dx, 0x03d5			  ;通过读写数据端口0x3d5来获得或设置光标位置 
    mov al, bh
    out dx, al
-
-;;;;;;; 2 再设置低8位 ;;;;;;;;;
+;2 再设置低8位 
    mov dx, 0x03d4
    mov al, 0x0f
    out dx, al
