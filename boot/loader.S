@@ -184,9 +184,9 @@ p_mode_start:
    jmp SELECTOR_CODE:enter_kernel	  ;强制刷新流水线,更新gdt
 enter_kernel:    
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-   call kernel_init
-   mov esp, 0xc009f000
-   jmp KERNEL_ENTRY_POINT                 ; 用地址0x1500访问测试，结果ok
+   call kernel_init                     ; 返回地址压栈 4 字节
+   mov esp, 0xc009f000                  ; 栈转移到可用区域 0xc0001000 起始的内核映像,大小为 60 KB,栈不会破坏
+   jmp KERNEL_ENTRY_POINT               ; 用地址0x1500访问测试，结果ok
 
 
 ;-----------------   将kernel.bin中的segment拷贝到编译的地址   -----------
@@ -288,18 +288,15 @@ setup_page:
    loop .create_kernel_pde
    ret
 
-
-;-------------------------------------------------------------------------------
-			   ;功能:读取硬盘n个扇区
-rd_disk_m_32:	   
+rd_disk_m_32:   ;功能:读取硬盘的n个扇区	   
 ;-------------------------------------------------------------------------------
 							 ; eax=LBA扇区号
 							 ; ebx=将数据写入的内存地址
 							 ; ecx=读入的扇区数
       mov esi,eax	   ; 备份eax
       mov di,cx		   ; 备份扇区数到di
-;读写硬盘:
-;第1步：设置要读取的扇区数
+    ;读写硬盘:
+    ;第1步：设置要读取的扇区数
       mov dx,0x1f2
       mov al,cl
       out dx,al            ;读取的扇区数
