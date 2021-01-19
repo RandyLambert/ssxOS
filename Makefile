@@ -139,8 +139,6 @@ mbr_loader:
 all: mk_dir build mbr_loader
 
 image:
-	# @-rm -rf $(img)
-	# bximage -hd -mode="flat" -size=30 -q $(img)
 	dd if=/dev/zero of=$(img) bs=512 count=300 conv=notrunc
 	dd if=./boot/mbr.bin of=$(img) bs=512 count=1 conv=notrunc
 	dd if=./boot/loader.bin of=$(img) bs=512 seek=2 count=3 conv=notrunc

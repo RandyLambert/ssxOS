@@ -19,13 +19,13 @@
 
 ### 开发环境
 
-操作系统版本: 5.4.70-amd64-desktop
-类型: 64位
-处理器: Intel(R) Core(TM) i7-8750H CPU @2.20GHz
-编译器版本: GCC 9.3
-nasm 版本: 2.14
-bochs 版本: 2.6.9
-dd 版本: 8.3
+- 操作系统版本: 5.4.70-amd64-desktop
+- 类型: 64位
+- 处理器: Intel(R) Core(TM) i7-8750H CPU @2.20GHz
+- 编译器版本: GCC 9.3
+- nasm 版本: 2.14
+- bochs 版本: 2.6.9
+- dd 版本: 8.3
 
 ### 如何运行
 

@@ -1,8 +1,8 @@
 ;主引导程序 
 ;------------------------------------------------------------
 %include "boot.inc"
-SECTION MBR vstart=0x7c00         
-   mov ax,cs      
+SECTION MBR vstart=0x7c00      ;标记起始地址   
+   mov ax,cs                    
    mov ds,ax
    mov es,ax
    mov ss,ax
@@ -25,11 +25,11 @@ SECTION MBR vstart=0x7c00
 ;无返回值：
    mov     ax, 0600h
    mov     bx, 0700h
-   mov     cx, 0                   ; 左上角: (0, 0)
-   mov     dx, 184fh		   ; 右下角: (80,25),
+   mov     cx, 0            ; 左上角: (0, 0)
+   mov     dx, 184fh		; 右下角: (80,25),
 				   ; 因为VGA文本模式中，一行只能容纳80个字符,共25行。
 				   ; 下标从0开始，所以0x18=24,0x4f=79
-   int     10h                     ; int 10h
+   int     10h     ; int 10h
 
    ; 输出字符串:MBR
    mov byte [gs:0x00],'1'
