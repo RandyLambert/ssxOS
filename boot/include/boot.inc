@@ -1,8 +1,8 @@
 ;-------------	 loader和kernel   ----------
 
-LOADER_BASE_ADDR equ 0x900 
-LOADER_STACK_TOP equ LOADER_BASE_ADDR
-LOADER_START_SECTOR equ 0x2
+LOADER_BASE_ADDR equ 0x900  ; equ是等于的意思,这个是定义loader的加载地方
+LOADER_STACK_TOP equ LOADER_BASE_ADDR ; 定义loader的栈顶
+LOADER_START_SECTOR equ 0x2         ; 因为loader放在了第二块扇区
 
 KERNEL_BIN_BASE_ADDR equ 0x70000
 KERNEL_START_SECTOR equ 0x9

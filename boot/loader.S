@@ -129,8 +129,8 @@
    or eax, 0x00000001
    mov cr0, eax
 
-   jmp dword SELECTOR_CODE:p_mode_start	     ; 刷新流水线，避免分支预测的影响,这种cpu优化策略，最怕jmp跳转，
-					     ; 这将导致之前做的预测失效，从而起到了刷新的作用。
+   jmp dword SELECTOR_CODE:p_mode_start	; 刷新流水线，避免分支预测的影响,这种cpu优化策略，最怕jmp跳转，
+			; 这将导致之前做的预测失效，从而起到了刷新的作用。在默认情况下,未使用 bits 伪指令设置运行环境,在之后使用伪指令 [bits 32]是让之后指令变为 32 位的,因此在这个时候流水线上都是按照 16 位译码的,有问题
 .error_hlt:		      ;出错则挂起
    hlt
 
